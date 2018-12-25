@@ -22,14 +22,11 @@ var client = &http.Client{
 }
 
 func Get(url string) (result string, outerErr error) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	obj, loaded := activeUrls.LoadOrStore(url, wg)
+	var newWg sync.WaitGroup
+	newWg.Add(1)
+	obj, loaded := activeUrls.LoadOrStore(url, &newWg)
+	wg, _ := obj.(*sync.WaitGroup)
 	if loaded {
-		wg, ok := obj.(sync.WaitGroup)
-		if !ok {
-			log.Fatalf("Expected a sync.WaitGroup, but was something else")
-		}
 		wg.Wait()
 		return Get(url)
 	}
