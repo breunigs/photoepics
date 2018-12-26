@@ -14,6 +14,7 @@ import (
 
 const readTimeout = time.Second * 10
 const maxReadSize = 10 * 1024 * 1024 // 10 MiB
+const userAgent = "photoepics/0.1"
 
 var activeUrls = sync.Map{}
 
@@ -53,7 +54,13 @@ func getNoRetry(url string) (string, error) {
 	EnsureRateLimit(url)
 
 	log.Printf("Reading %s\n", url)
-	res, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	res, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
