@@ -8,7 +8,7 @@ import (
 )
 
 // zoom level at which the bbox are aligned (using OSM tile boundaries)
-const gridZoomLevel = 14
+const gridZoomLevel = 15
 
 var inputFilePath string
 var mapillaryClientKey string

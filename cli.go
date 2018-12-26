@@ -32,6 +32,7 @@ func cmdGen() *cobra.Command {
 				go func(tile maptile.Tile) {
 					defer wg.Done()
 					FindSequences(tile)
+					log.Printf("done reading tile: %dx%d", tile.X, tile.Y)
 				}(tile.(maptile.Tile))
 			}
 			wg.Wait()
