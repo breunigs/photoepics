@@ -2,10 +2,9 @@ package main
 
 import (
 	"log"
-	"sync"
 
-	mapset "github.com/deckarep/golang-set"
-	"github.com/paulmach/orb/maptile"
+	"github.com/breunigs/photoepics/dgraph"
+	"github.com/breunigs/photoepics/mapillary"
 	"github.com/spf13/cobra"
 )
 
@@ -18,26 +17,20 @@ func cmdGen() *cobra.Command {
 			if err != nil {
 				log.Fatalf("Cannot extract GPS track from file: %+v", err)
 			}
-			tiles := mapset.NewSet()
-			for _, pt := range lineStr {
-				tile := maptile.At(pt, gridZoomLevel)
 
-				tiles.Add(tile)
-			}
+			insertChan := make(chan dgraph.DgraphInsertable, 50)
+			go func() {
+				defer close(insertChan)
+				photoChan := mapillary.FindSequences(mapConf, lineStr)
+				for x := range photoChan {
+					insertChan <- x
+				}
+			}()
 
-			log.Printf("Reading data for %d bounding boxes", tiles.Cardinality())
-			var wg sync.WaitGroup
-			for tile := range tiles.Iterator().C {
-				wg.Add(1)
-				go func(tile maptile.Tile) {
-					defer wg.Done()
-					FindSequences(tile)
-					log.Printf("done reading tile: %dx%d", tile.X, tile.Y)
-				}(tile.(maptile.Tile))
-			}
-			wg.Wait()
-			// find suitable bounding boxes on grid
-			// log.Printf("%v    %v", tiles, err)
+			db := dgraph.NewClient()
+			db.CreateSchema(mapillary.PhotoDgraphSchema())
+
+			db.InsertStream(insertChan)
 		},
 	}
 	cmd.Flags().StringVarP(&inputFilePath, "input", "i", "", "input file for which to generate a photo sequence")
@@ -45,18 +38,24 @@ func cmdGen() *cobra.Command {
 	requireApiKey(cmd)
 	filterByUserName(cmd)
 	filterByDate(cmd)
+
+	cmd.Flags().StringVar(&startImageKey, "start-image", "", "The image to start from")
+	cmd.MarkFlagRequired("start-image")
+	cmd.Flags().StringVar(&endImageKey, "end-image", "", "The image to stop at")
+	cmd.MarkFlagRequired("end-image")
+
 	return cmd
 }
 
 func requireApiKey(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&mapillaryClientKey, "api-key", "", "Mapillary API Key")
+	cmd.Flags().StringVar(&mapConf.ApiKey, "api-key", "", "Mapillary API Key")
 	cmd.MarkFlagRequired("api-key")
 }
 
 func filterByUserName(cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&mapillaryFilterUsers, "filter-users", "", "", "only use photos from these Mapillary users. Comma separated.")
+	cmd.Flags().StringVarP(&mapConf.FilterUsers, "filter-users", "", "", "only use photos from these Mapillary users. Comma separated.")
 }
 
 func filterByDate(cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&mapillaryFilterNewer, "filter-newer", "", "", "only use sequences newer than this date. Format YYYY-MM-DD.")
+	cmd.Flags().StringVarP(&mapConf.FilterNewer, "filter-newer", "", "", "only use sequences newer than this date. Format YYYY-MM-DD.")
 }

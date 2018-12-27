@@ -4,16 +4,15 @@ import (
 	"log"
 
 	"github.com/breunigs/photoepics/browser"
+	"github.com/breunigs/photoepics/mapillary"
 	"github.com/spf13/cobra"
 )
 
-// zoom level at which the bbox are aligned (using OSM tile boundaries)
-const gridZoomLevel = 15
-
 var inputFilePath string
-var mapillaryClientKey string
-var mapillaryFilterUsers string
-var mapillaryFilterNewer string
+var startImageKey string
+var endImageKey string
+
+var mapConf mapillary.Config
 
 var rootCmd = &cobra.Command{
 	Use:   "photoepics",
