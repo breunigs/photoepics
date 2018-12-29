@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/breunigs/photoepics/cheapruler"
 	"github.com/mitchellh/mapstructure"
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
 	"github.com/paulmach/orb/maptile"
-	"github.com/paulmach/orb/planar"
 )
 
 type coordinateProperties struct {
@@ -136,7 +136,7 @@ func (s sequenceRetriever) makePhotos(seq string, imgKeys []string, ls orb.LineS
 					MergeCC:     details.MergeCC.Value,
 					Sequence:    seq,
 				}
-				pic.DistFromPath = planar.DistanceFrom(s.lineStr, pic.Point())
+				pic.DistFromPath = cheapruler.LineDist(s.lineStr, pic.Point())
 				s.out <- pic
 			}
 		}(imgKeys[i:end], ls[i:end], cas[i:end])

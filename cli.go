@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	"github.com/breunigs/photoepics/cheapruler"
 	"github.com/breunigs/photoepics/dgraph"
 	"github.com/breunigs/photoepics/mapillary"
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ func cmdGen() *cobra.Command {
 			if err != nil {
 				log.Fatalf("Cannot extract GPS track from file: %+v", err)
 			}
+			cheapruler.Init(lineStr[0][1])
 
 			insertChan := make(chan dgraph.DgraphInsertable, 50)
 			go func() {
