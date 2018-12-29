@@ -19,16 +19,18 @@ type coordinateProperties struct {
 }
 
 type sequenceRetriever struct {
-	out     chan Photo
-	lineStr orb.LineString
-	conf    Config
+	out           chan Photo
+	lineStr       orb.LineString
+	conf          Config
+	seenSequences *sync.Map
 }
 
 func FindSequences(mapConf Config, lineStr orb.LineString) <-chan Photo {
 	sr := sequenceRetriever{
-		out:     make(chan Photo, 10),
-		lineStr: lineStr,
-		conf:    mapConf,
+		out:           make(chan Photo, 10),
+		lineStr:       lineStr,
+		conf:          mapConf,
+		seenSequences: &sync.Map{},
 	}
 
 	wg := sr.RetrieveTiles()
@@ -81,6 +83,13 @@ func (s sequenceRetriever) retrieveTile(t maptile.Tile) {
 
 	var wg sync.WaitGroup
 	for _, feat := range fc.Features {
+		seqkey := fmt.Sprintf("%s", feat.Properties["key"])
+		_, loaded := s.seenSequences.LoadOrStore(seqkey, true)
+		if loaded {
+			// other tile saw the same sequence
+			continue
+		}
+
 		g := feat.Geometry
 		if g.GeoJSONType() != "LineString" {
 			log.Printf("Unexpected Geometry type in Mapillary sequence: %s", g.GeoJSONType())
@@ -94,7 +103,6 @@ func (s sequenceRetriever) retrieveTile(t maptile.Tile) {
 			return
 		}
 
-		seqkey := fmt.Sprintf("%s", feat.Properties["key"])
 		ls := g.(orb.LineString)
 		s.makePhotos(seqkey, cp.Image_keys, ls, cp.Cas, &wg)
 	}
