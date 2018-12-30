@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/dgraph-io/dgo"
 	"github.com/dgraph-io/dgo/protos/api"
@@ -15,11 +16,11 @@ type DgraphInsertable interface {
 	DgraphInsert() string
 }
 
-type wrapper struct {
+type Wrapper struct {
 	client *dgo.Dgraph
 }
 
-func NewClient() wrapper {
+func NewClient() Wrapper {
 	d, err := grpc.Dial("localhost:9080", grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)
@@ -29,12 +30,20 @@ func NewClient() wrapper {
 		api.NewDgraphClient(d),
 	)
 
-	return wrapper{
+	return Wrapper{
 		client: client,
 	}
 }
 
-func (w wrapper) CreateSchema(schema string) {
+func (w Wrapper) Query(query string, params map[string]string) []byte {
+	resp, err := w.client.NewTxn().QueryWithVars(context.Background(), query, params)
+	if err != nil {
+		log.Fatalf("Failed to run query: %+v\nOriginal Query was:\n%s\nwith params: %+v\n", err, query, params)
+	}
+	return resp.GetJson()
+}
+
+func (w Wrapper) CreateSchema(schema string) {
 	err := w.client.Alter(context.Background(), &api.Operation{
 		Schema: schema,
 	})
@@ -43,23 +52,32 @@ func (w wrapper) CreateSchema(schema string) {
 	}
 }
 
-func (w wrapper) insertStr(entry string) {
-	mu := &api.Mutation{
-		CommitNow: true,
-	}
+func (w Wrapper) insertStr(entry string) {
+	maxRetries := 5
+	for i := 1; i <= maxRetries; i++ {
+		mu := &api.Mutation{
+			CommitNow: true,
+			SetNquads: []byte(entry),
+		}
+		_, err := w.client.NewTxn().Mutate(context.Background(), mu)
+		if err == nil {
+			return
+		}
 
-	mu.SetNquads = []byte(entry)
-	_, err := w.client.NewTxn().Mutate(context.Background(), mu)
-	if err != nil {
+		if i != maxRetries && strings.Index(err.Error(), "Transaction has been aborted") >= 0 {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
 		log.Fatalf("Failed to insert entry into DB: %+v\n\nOriginal query was:\n%s", err, entry)
 	}
 }
 
-func (w wrapper) Insert(entry DgraphInsertable) {
+func (w Wrapper) Insert(entry DgraphInsertable) {
 	w.insertStr(entry.DgraphInsert())
 }
 
-func (w wrapper) InsertBatch(entries []DgraphInsertable) {
+func (w Wrapper) InsertBatch(entries []DgraphInsertable) {
 	var b strings.Builder
 	for _, entry := range entries {
 		b.WriteString(entry.DgraphInsert())
@@ -67,7 +85,7 @@ func (w wrapper) InsertBatch(entries []DgraphInsertable) {
 	w.insertStr(b.String())
 }
 
-func (w wrapper) InsertStream(stream <-chan DgraphInsertable) {
+func (w Wrapper) InsertStream(stream <-chan DgraphInsertable) {
 	var b strings.Builder
 
 	i := 0

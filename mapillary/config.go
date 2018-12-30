@@ -12,6 +12,10 @@ const tileBuffer = 0.05
 // how many image details to fetch from Mapillary's private API per request
 const imageDetailsChunkSize = 100
 
+// how many meters of distance between two photos are allowed, before the
+// Mapillary Viewer will not transition anymore.
+const maxTransitionDistance = 25
+
 type Config struct {
 	FilterNewer string
 	FilterUsers string

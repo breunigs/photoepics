@@ -15,19 +15,19 @@ import (
 
 type coordinateProperties struct {
 	Image_keys []string
-	Cas        []float32
+	Cas        []float64
 }
 
 type sequenceRetriever struct {
-	out           chan Photo
+	out           chan *Photo
 	lineStr       orb.LineString
 	conf          Config
 	seenSequences *sync.Map
 }
 
-func FindSequences(mapConf Config, lineStr orb.LineString) <-chan Photo {
+func FindSequences(mapConf Config, lineStr orb.LineString) <-chan *Photo {
 	sr := sequenceRetriever{
-		out:           make(chan Photo, 10),
+		out:           make(chan *Photo, 10),
 		lineStr:       lineStr,
 		conf:          mapConf,
 		seenSequences: &sync.Map{},
@@ -109,7 +109,7 @@ func (s sequenceRetriever) retrieveTile(t maptile.Tile) {
 	wg.Wait()
 }
 
-func (s sequenceRetriever) makePhotos(seq string, imgKeys []string, ls orb.LineString, cas []float32, wg *sync.WaitGroup) {
+func (s sequenceRetriever) makePhotos(seq string, imgKeys []string, ls orb.LineString, cas []float64, wg *sync.WaitGroup) {
 	// Mapillary data is not always consistent
 	maxLen := min(len(imgKeys), len(ls), len(cas))
 
@@ -120,7 +120,7 @@ func (s sequenceRetriever) makePhotos(seq string, imgKeys []string, ls orb.LineS
 		}
 
 		wg.Add(1)
-		go func(imgKeyChunk []string, lsChunk []orb.Point, casChunk []float32) {
+		go func(imgKeyChunk []string, lsChunk []orb.Point, casChunk []float64) {
 			defer wg.Done()
 
 			detailsChunk := getImageByKeys(s.conf, imgKeyChunk)
@@ -130,14 +130,13 @@ func (s sequenceRetriever) makePhotos(seq string, imgKeys []string, ls orb.LineS
 				pic := Photo{
 					Key:         imgKeyChunk[j],
 					CameraAngle: casChunk[j],
-					Lon:         lsChunk[j][0],
-					Lat:         lsChunk[j][1],
 					Captured:    time.Unix(details.CapturedAt.Value/1000, 0),
 					MergeCC:     details.MergeCC.Value,
 					Sequence:    seq,
 				}
+				pic.SetLocation(lsChunk[j])
 				pic.DistFromPath = cheapruler.LineDist(s.lineStr, pic.Point())
-				s.out <- pic
+				s.out <- &pic
 			}
 		}(imgKeys[i:end], ls[i:end], cas[i:end])
 	}
