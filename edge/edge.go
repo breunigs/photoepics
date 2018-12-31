@@ -5,12 +5,15 @@ import (
 	"log"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/breunigs/photoepics/cheapruler"
 	"github.com/breunigs/photoepics/dgraph"
 	"github.com/breunigs/photoepics/mapillary"
 	"github.com/paulmach/orb"
 )
+
+const month = 30 * 24 * time.Hour
 
 type edge struct {
 	from, to string
@@ -103,6 +106,11 @@ func calcWeights(weightChan chan<- dgraph.DgraphInsertable, seen *sync.Map, ps1,
 			if weight > 100 {
 				continue
 			}
+
+			// prefer newer pictures. Since this is unbounded, do it after pruning
+			age1 := time.Now().Sub(p1.Captured)
+			age2 := time.Now().Sub(p2.Captured)
+			weight += 3*float64(age1/month) + 3*float64(age2/month)
 
 			// order
 			// malusWrongOrder := 30.0
