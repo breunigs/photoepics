@@ -43,38 +43,33 @@ func LineDist(ls orb.LineString, pt orb.Point) float64 {
 }
 
 // emits a Point every interval <unit of sharedCr> along the line string
-func EveryN(ls orb.LineString, interval float64) <-chan orb.Point {
+func EveryN(ls orb.LineString, interval float64) []orb.Point {
 	if interval <= 0 {
 		log.Fatalf("interval must be positive")
 	}
 
-	out := make(chan orb.Point, 0)
+	out := make([]orb.Point, 0)
+	out = append(out, ls[0])
 
-	go func() {
-		out <- ls[0]
+	step := 0.0
+	currentPos := 0.0
 
-		step := 0.0
-		currentPos := 0.0
+	for i := 0; i < len(ls)-1; {
+		p0 := toFloat(ls[i])
+		p1 := toFloat(ls[i+1])
+		d := sharedCr.Distance(p0, p1)
 
-		for i := 0; i < len(ls)-1; {
-			p0 := toFloat(ls[i])
-			p1 := toFloat(ls[i+1])
-			d := sharedCr.Distance(p0, p1)
-
-			if currentPos+d < interval*step {
-				currentPos += d
-				i++
-				continue
-			}
-
-			out <- interpolate(p0, p1, (interval*step-currentPos)/d)
-			step++
+		if currentPos+d < interval*step {
+			currentPos += d
+			i++
+			continue
 		}
 
-		out <- ls[len(ls)-1]
-		close(out)
-	}()
+		out = append(out, interpolate(p0, p1, (interval*step-currentPos)/d))
+		step++
+	}
 
+	out = append(out, ls[len(ls)-1])
 	return out
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"runtime"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/breunigs/photoepics/dgraph"
 	"github.com/breunigs/photoepics/mapillary"
 	"github.com/paulmach/orb"
+	pb "gopkg.in/cheggaaa/pb.v1"
 )
 
 const month = 30 * 24 * time.Hour
@@ -35,16 +37,17 @@ func CalcWeightsAlong(db dgraph.Wrapper, lineStr orb.LineString, stepSize float6
 		}()
 
 		equidist := cheapruler.EveryN(lineStr, stepSize)
-		prev := mapillary.PhotosNearQuery(db, <-equidist, stepSize*2)
-		for point := range equidist {
-			wg.Add(1)
-			curr := mapillary.PhotosNearQuery(db, point, stepSize*2)
-			go func(p, c []mapillary.Photo) {
-				defer wg.Done()
-				calcWeights(weightChan, &seen, p, c)
-			}(prev, curr)
-			prev = curr
+
+		log.Println("Calculating weights for close images…")
+		bar := pb.StartNew(len(equidist))
+		picPairChan := findNearbyImages(db, equidist, stepSize*2)
+
+		for picPair := range picPairChan {
+			calcWeights(weightChan, &seen, picPair[0], picPair[1])
+			bar.Increment()
 		}
+
+		bar.Finish()
 	}()
 
 	return weightChan
@@ -66,10 +69,6 @@ func calcWeights(weightChan chan<- dgraph.DgraphInsertable, seen *sync.Map, ps1,
 	for _, p1 := range ps1 {
 		for _, p2 := range ps2 {
 			if p1.Key == p2.Key {
-				continue
-			}
-
-			if _, loaded := seen.LoadOrStore(dupeKey(p1, p2), struct{}{}); loaded {
 				continue
 			}
 
@@ -107,6 +106,10 @@ func calcWeights(weightChan chan<- dgraph.DgraphInsertable, seen *sync.Map, ps1,
 				continue
 			}
 
+			if _, loaded := seen.LoadOrStore(dupeKey(p1, p2), struct{}{}); loaded {
+				continue
+			}
+
 			// prefer newer pictures. Since this is unbounded, do it after pruning
 			age1 := time.Now().Sub(p1.Captured)
 			age2 := time.Now().Sub(p2.Captured)
@@ -124,23 +127,67 @@ func calcWeights(weightChan chan<- dgraph.DgraphInsertable, seen *sync.Map, ps1,
 			}
 
 			if p1.CameraAngle-90 < bearing1 && bearing1 < p1.CameraAngle+90 {
-				log.Printf("%s -> %s @ %f\n", p1.Key, p2.Key, weight)
+				// log.Printf("%s -> %s @ %f\n", p1.Key, p2.Key, weight)
 				weightChan <- edge{from: p1.Uid, to: p2.Uid, weight: weight}
-			} else {
-				// log.Printf("%s -> %s @ %f\n", p1.Key, p2.Key, weight+malusWrongOrder)
-				// weightChan <- edge{from: p1.Uid, to: p2.Uid, weight: weight + malusWrongOrder}
 			}
 
 			if p2.CameraAngle-90 < bearing2 && bearing2 < p2.CameraAngle+90 {
-				log.Printf("%s -> %s # %f\n", p2.Key, p1.Key, weight)
+				// log.Printf("%s -> %s # %f\n", p2.Key, p1.Key, weight)
 				weightChan <- edge{from: p2.Uid, to: p1.Uid, weight: weight}
-			} else {
-				// log.Printf("%s -> %s @ %f\n", p2.Key, p1.Key, weight+malusWrongOrder)
-				// weightChan <- edge{from: p2.Uid, to: p1.Uid, weight: weight + malusWrongOrder}
 			}
-
-			// fmt.Printf("b1: %f, b2: %f, key1: %s, key2: %s, ang1: %f, ang2: %f\n", bearing1, bearing2, p1.Key, p2.Key, p1.CameraAngle, p2.CameraAngle)
-			// panic(1)
 		}
 	}
+}
+
+func findNearbyImages(db dgraph.Wrapper, pts []orb.Point, radius float64) <-chan [2][]mapillary.Photo {
+	cache := make([][]mapillary.Photo, len(pts))
+	var mu sync.Mutex
+
+	jobs := make(chan int, len(pts))
+	done := make(chan int, len(pts))
+	for w := 0; w < runtime.NumCPU()-1; w++ {
+		go func(jobs <-chan int, done chan<- int) {
+			for j := range jobs {
+				nearby := mapillary.PhotosNearQuery(db, pts[j], radius)
+				mu.Lock()
+				cache[j] = nearby
+				mu.Unlock()
+				done <- j
+			}
+		}(jobs, done)
+	}
+
+	for i := 0; i < len(pts); i++ {
+		jobs <- i
+	}
+	close(jobs)
+
+	groupChan := make(chan [2][]mapillary.Photo, 1)
+	go func() {
+		startFrom := 0
+		status := make([]bool, len(pts))
+		maxThreads := len(pts) - 2
+		if maxThreads <= 0 {
+			maxThreads = 1
+		}
+		for c := 0; c < maxThreads; c++ {
+			status[<-done] = true
+			// everytime a new query is done, try to emit the next pair
+			for i := startFrom; i < len(pts); i++ {
+				if !status[i] || !status[i+1] {
+					break
+				}
+
+				mu.Lock()
+				groupChan <- [2][]mapillary.Photo{cache[i], cache[i+1]}
+				cache[i] = nil
+				mu.Unlock()
+				startFrom = i + 1
+			}
+		}
+		close(done)
+		close(groupChan)
+	}()
+
+	return groupChan
 }

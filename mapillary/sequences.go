@@ -11,6 +11,7 @@ import (
 	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
 	"github.com/paulmach/orb/maptile"
+	pb "gopkg.in/cheggaaa/pb.v1"
 )
 
 type coordinateProperties struct {
@@ -33,28 +34,31 @@ func FindSequences(mapConf Config, lineStr orb.LineString) <-chan *Photo {
 		seenSequences: &sync.Map{},
 	}
 
-	wg := sr.RetrieveTiles()
-	go func() {
-		wg.Wait()
-		close(sr.out)
-	}()
-
+	sr.RetrieveTiles()
 	return sr.out
 }
 
-func (s sequenceRetriever) RetrieveTiles() *sync.WaitGroup {
+func (s sequenceRetriever) RetrieveTiles() {
 	var wg sync.WaitGroup
 	tiles := s.Tiles()
 	log.Printf("Reading data for %d tiles", len(tiles))
+
+	bar := pb.StartNew(len(tiles))
+
 	for _, tile := range tiles {
 		wg.Add(1)
 		go func(tile maptile.Tile) {
 			defer wg.Done()
 			s.retrieveTile(tile)
-			log.Printf("done reading tile: %dx%d", tile.X, tile.Y)
+			bar.Increment()
 		}(tile)
 	}
-	return &wg
+
+	go func() {
+		wg.Wait()
+		close(s.out)
+		bar.Finish()
+	}()
 }
 
 func (s sequenceRetriever) Tiles() []maptile.Tile {
