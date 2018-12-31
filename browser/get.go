@@ -53,7 +53,7 @@ func getNoRetry(url string) (string, error) {
 
 	EnsureRateLimit(url)
 
-	log.Printf("Reading %s\n", url)
+	log.Printf("Reading %s\n", shorten(url))
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
@@ -80,4 +80,11 @@ func getNoRetry(url string) (string, error) {
 		log.Printf("Failed to write disk cache for %s\n", url)
 	}
 	return string(bodyBytes), nil
+}
+
+func shorten(url string) string {
+	if len(url) <= 200 {
+		return url
+	}
+	return url[0:199] + "…"
 }
