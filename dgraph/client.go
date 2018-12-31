@@ -13,6 +13,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+const maxRetries = 5
+
 type DgraphInsertable interface {
 	DgraphInsert() string
 }
@@ -58,11 +60,18 @@ func (w Wrapper) Count(predicate string) int64 {
 }
 
 func (w Wrapper) Query(query string, params map[string]string) []byte {
-	resp, err := w.client.NewTxn().QueryWithVars(context.Background(), query, params)
-	if err != nil {
-		log.Fatalf("Failed to run query: %+v\nOriginal Query was:\n%s\nwith params: %+v\n", err, query, params)
+	var lastError error
+	for i := 0; i < maxRetries; i++ {
+		resp, err := w.client.NewTxn().QueryWithVars(context.Background(), query, params)
+		if err != nil {
+			lastError = err
+			time.Sleep(time.Second)
+			continue
+		}
+		return resp.GetJson()
 	}
-	return resp.GetJson()
+	log.Fatalf("Failed to run query: %+v\nOriginal Query was:\n%s\nwith params: %+v\n", lastError, query, params)
+	return nil
 }
 
 func (w Wrapper) CreateSchema(schema string) {
@@ -84,7 +93,6 @@ func (w Wrapper) PurgeEverything() {
 }
 
 func (w Wrapper) insertStr(entry string) {
-	maxRetries := 5
 	for i := 1; i <= maxRetries; i++ {
 		mu := &api.Mutation{
 			CommitNow: true,
