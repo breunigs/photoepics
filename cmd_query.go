@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const emptyImageKey = "           ?          "
+
 func cmdQuery() *cobra.Command {
 	var startImageKey string
 	var endImageKey string
@@ -59,8 +61,34 @@ func runCmdQuery(startImageKey, endImageKey string) {
 		log.Fatal(err)
 	}
 
-	fmt.Println("DB UID     SEQUENCE KEY             IMAGE KEY")
+	// full list
+	// fmt.Println("DB UID     SEQUENCE KEY             IMAGE KEY")
+	// for _, pic := range r.Path {
+	// 	fmt.Printf("(%s) %s:  %s\n", pic.Uid, pic.Sequence, pic.Key)
+	// }
+
+	// abbreviated
+	prevSeq := ""
+
+	seqStart := emptyImageKey
+	seqEnd := emptyImageKey
+
 	for _, pic := range r.Path {
-		fmt.Printf("(%s) %s:  %s\n", pic.Uid, pic.Sequence, pic.Key)
+		if prevSeq == pic.Sequence {
+			seqEnd = pic.Key
+			continue
+		}
+
+		if prevSeq != "" {
+			if seqEnd == emptyImageKey {
+				seqStart, seqEnd = seqEnd, seqStart
+			}
+			fmt.Println(`{ "seq": "` + prevSeq + `", "from": "` + seqStart + `", "to": "` + seqEnd + `"},`)
+		}
+
+		prevSeq = pic.Sequence
+		seqStart = pic.Key
+		seqEnd = emptyImageKey
 	}
+	fmt.Println(`{ "seq": "` + prevSeq + `", "from": "` + seqStart + `", "to": "` + emptyImageKey + `"},`)
 }
