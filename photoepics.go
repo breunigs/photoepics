@@ -4,15 +4,8 @@ import (
 	"log"
 
 	"github.com/breunigs/photoepics/browser"
-	"github.com/breunigs/photoepics/mapillary"
 	"github.com/spf13/cobra"
 )
-
-var inputFilePath string
-var startImageKey string
-var endImageKey string
-
-var mapConf mapillary.Config
 
 var rootCmd = &cobra.Command{
 	Use:   "photoepics",
@@ -21,7 +14,9 @@ var rootCmd = &cobra.Command{
 }
 
 func main() {
-	rootCmd.AddCommand(cmdGen())
+	rootCmd.AddCommand(cmdPurge())
+	rootCmd.AddCommand(cmdLoad())
+	rootCmd.AddCommand(cmdQuery())
 	rootCmd.Execute()
 }
 

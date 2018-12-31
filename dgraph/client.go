@@ -2,6 +2,7 @@ package dgraph
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"strings"
 	"sync"
@@ -35,6 +36,27 @@ func NewClient() Wrapper {
 	}
 }
 
+type countRoot struct {
+	Count []struct {
+		Total int64 `json:"total"`
+	} `json:"count"`
+}
+
+func (w Wrapper) Count(predicate string) int64 {
+	query := `{
+    count(func: has(<` + predicate + `>)) {
+      total: count(uid)
+    }
+  }`
+	resp := w.Query(query, map[string]string{})
+
+	var r countRoot
+	if err := json.Unmarshal(resp, &r); err != nil {
+		log.Fatal(err)
+	}
+	return r.Count[0].Total
+}
+
 func (w Wrapper) Query(query string, params map[string]string) []byte {
 	resp, err := w.client.NewTxn().QueryWithVars(context.Background(), query, params)
 	if err != nil {
@@ -49,6 +71,15 @@ func (w Wrapper) CreateSchema(schema string) {
 	})
 	if err != nil {
 		log.Fatalf("cannot create schema: %+v\n\nSchema was:\n%s", err, schema)
+	}
+}
+
+func (w Wrapper) PurgeEverything() {
+	err := w.client.Alter(context.Background(), &api.Operation{
+		DropAll: true,
+	})
+	if err != nil {
+		log.Fatalf("Failed to purge everything: %s", err)
 	}
 }
 

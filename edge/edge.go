@@ -1,4 +1,4 @@
-package main
+package edge
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ func (e edge) DgraphInsert() string {
 	return fmt.Sprintf("<%s> <transitionable> <%s> (weight=%f) .\n", e.from, e.to, e.weight)
 }
 
-func calcWeightsAlong(db dgraph.Wrapper, lineStr orb.LineString, stepSize float64) <-chan dgraph.DgraphInsertable {
+func CalcWeightsAlong(db dgraph.Wrapper, lineStr orb.LineString, stepSize float64) <-chan dgraph.DgraphInsertable {
 	weightChan := make(chan dgraph.DgraphInsertable, 50)
 	var wg sync.WaitGroup
 	var seen sync.Map
@@ -45,6 +45,10 @@ func calcWeightsAlong(db dgraph.Wrapper, lineStr orb.LineString, stepSize float6
 	}()
 
 	return weightChan
+}
+
+func Count(db dgraph.Wrapper) int64 {
+	return db.Count("transitionable")
 }
 
 func dupeKey(p1, p2 mapillary.Photo) string {

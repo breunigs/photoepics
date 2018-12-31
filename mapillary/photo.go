@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -21,7 +22,7 @@ type root struct {
 	Photos []Photo `json:"photos"`
 }
 
-const photoReadQueryBody = `
+const PhotoReadQueryBody = `
   uid
   key
   loc
@@ -95,9 +96,16 @@ func (p *Photo) DgraphInsert() string {
   `, p.Loc.Coords[0], p.Loc.Coords[1], p.Key, p.Sequence, p.CameraAngle, p.MergeCC, p.RFC3339(), p.DistFromPath)
 }
 
+func PhotoCount(db dgraph.Wrapper) int64 {
+	cnt := float64(db.Count("key"))
+	cnt = math.Max(cnt, float64(db.Count("loc")))
+	cnt = math.Max(cnt, float64(db.Count("distFromPath")))
+	return int64(cnt)
+}
+
 func PhotoByKey(db dgraph.Wrapper, key string) Photo {
 	query := `query PhotoByKey($key: string) {
-    photos(func: eq(key, $key)) { ` + photoReadQueryBody + ` }
+    photos(func: eq(key, $key)) { ` + PhotoReadQueryBody + ` }
   }`
 	params := map[string]string{
 		"$key": key,
@@ -109,13 +117,17 @@ func PhotoByKey(db dgraph.Wrapper, key string) Photo {
 		log.Fatal(err)
 	}
 
+	if len(r.Photos) != 1 {
+		log.Fatalf("Expected to find exactly one photo with key=%s, but found %d", key, len(r.Photos))
+	}
+
 	return r.Photos[0]
 }
 
 func PhotosNearQuery(db dgraph.Wrapper, pt orb.Point, radius float64) []Photo {
 	query := fmt.Sprintf(`
     query PhotosNear($loc: string, $radius: float) {
-      photos(func: near(loc, $loc, $radius) ) { ` + photoReadQueryBody + ` }
+      photos(func: near(loc, $loc, $radius) ) { ` + PhotoReadQueryBody + ` }
     }`)
 	params := map[string]string{
 		"$loc":    fmt.Sprintf("[%f, %f]", pt[0], pt[1]),
