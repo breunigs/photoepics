@@ -65,6 +65,7 @@ func (w Wrapper) Query(query string, params map[string]string) []byte {
 		resp, err := w.client.NewTxn().QueryWithVars(context.Background(), query, params)
 		if err != nil {
 			lastError = err
+			log.Println("retrying query")
 			time.Sleep(time.Second)
 			continue
 		}

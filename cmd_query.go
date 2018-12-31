@@ -47,7 +47,7 @@ func runCmdQuery(startImageKey, endImageKey string) {
 
 	resp := db.Query(`
          {
-           path as shortest(from: `+startPic.Uid+`, to: `+endPic.Uid+`, numpaths: 2) {
+           path as shortest(from: `+startPic.Uid+`, to: `+endPic.Uid+`, numpaths: 1) {
              transitionable @facets(weight)
            }
            path(func: uid(path)) { `+mapillary.PhotoReadQueryBody+` }
