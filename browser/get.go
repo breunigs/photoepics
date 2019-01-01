@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +24,10 @@ var client = &http.Client{
 }
 
 func Get(url string) (result string, outerErr error) {
+	if strings.Contains(url, " ") {
+		log.Fatalf("Was given URL that contains a space. Please encode the URL properly or remove the space: %s", url)
+	}
+
 	var newWg sync.WaitGroup
 	newWg.Add(1)
 	obj, loaded := activeUrls.LoadOrStore(url, &newWg)
