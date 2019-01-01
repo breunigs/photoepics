@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"sync"
 
 	"github.com/breunigs/photoepics/dgraph"
 	"github.com/breunigs/photoepics/edge"
@@ -21,8 +22,17 @@ func cmdPurge() *cobra.Command {
 			log.Printf("Purging…")
 			db.PurgeEverything()
 
-			log.Printf("Photos: %d", mapillary.PhotoCount(db))
-			log.Printf("Edges: %d", edge.Count(db))
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				log.Printf("Photos: %d", mapillary.PhotoCount(db))
+			}()
+			go func() {
+				defer wg.Done()
+				log.Printf("Edges: %d", edge.Count(db))
+			}()
+			wg.Wait()
 		},
 	}
 	cmd.Flags().BoolVarP(&purgeConfirmed, "confirm", "", false, "Please confirm that you really want to delete everything in the database")
