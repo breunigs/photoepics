@@ -53,7 +53,7 @@ func getNoRetry(url string) (string, error) {
 
 	EnsureRateLimit(url)
 
-	log.Printf("Reading %s\n", shorten(url))
+	// log.Printf("Reading %s\n", shorten(url))
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
