@@ -19,5 +19,5 @@ const maxTransitionDistance = 25
 type Config struct {
 	FilterNewer string
 	FilterUsers string
-	ApiKey      string
+	APIKey      string
 }

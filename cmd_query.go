@@ -83,12 +83,12 @@ func runCmdQuery(startImageKey, endImageKey string) {
 			if seqEnd == emptyImageKey {
 				seqStart, seqEnd = seqEnd, seqStart
 			}
-			fmt.Println(`{ "seq": "` + prevSeq + `", "from": "` + seqStart + `", "to": "` + seqEnd + `"},`)
+			fmt.Println(`{ "seq": "` + prevSeq + `", "from": "` + seqStart + `", "to": "` + seqEnd + `" },`)
 		}
 
 		prevSeq = pic.Sequence
 		seqStart = pic.Key
 		seqEnd = emptyImageKey
 	}
-	fmt.Println(`{ "seq": "` + prevSeq + `", "from": "` + seqStart + `", "to": "` + emptyImageKey + `"},`)
+	fmt.Println(`{ "seq": "` + prevSeq + `", "from": "` + seqStart + `", "to": "` + emptyImageKey + `" },`)
 }

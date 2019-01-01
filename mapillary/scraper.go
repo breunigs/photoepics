@@ -29,7 +29,7 @@ type graphImageByKey struct {
 
 func getApi(conf Config, fun string, query string) string {
 	url := mapillaryBaseUrl + fun
-	url += "?client_id=" + conf.ApiKey
+	url += "?client_id=" + conf.APIKey
 	url += maybeFilterUsers(conf)
 	url += maybeFilterNewer(conf)
 	if query != "" {
@@ -46,7 +46,7 @@ func getImageByKeys(conf Config, imageKey []string) map[string]imageByKey {
 	imgKeys := strings.Join(imageKey, `","`)
 
 	url := mapillaryBaseUrl + "model.json"
-	url += "?client_id=" + conf.ApiKey
+	url += "?client_id=" + conf.APIKey
 	url += "&method=get"
 	url += fmt.Sprintf(`&paths=[["imageByKey",["%s"],["captured_at","merge_cc"]]]`, imgKeys)
 	body, err := browser.Get(url)

@@ -13,7 +13,7 @@ import (
 	"github.com/tkrajina/gpxgo/gpx"
 )
 
-func trackFromFile(filePath string, trackId int) (orb.LineString, error) {
+func trackFromFile(filePath string, trackID int) (orb.LineString, error) {
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -21,9 +21,9 @@ func trackFromFile(filePath string, trackId int) (orb.LineString, error) {
 
 	switch getFileEnding(filePath) {
 	case "gpx":
-		return parseGPX(data, trackId)
+		return parseGPX(data, trackID)
 	case "geojson":
-		return parseGeoJSON(data, trackId)
+		return parseGeoJSON(data, trackID)
 	default:
 		return nil, errors.New("Unknown file extension")
 	}
@@ -35,7 +35,7 @@ func getFileEnding(path string) string {
 	return parts[len(parts)-1]
 }
 
-func parseGPX(data []byte, trackId int) (orb.LineString, error) {
+func parseGPX(data []byte, trackID int) (orb.LineString, error) {
 	gpxFile, err := gpx.ParseBytes(data)
 	if err != nil {
 		return nil, err
@@ -54,10 +54,10 @@ func parseGPX(data []byte, trackId int) (orb.LineString, error) {
 		tracks = append(tracks, ls)
 	}
 
-	return chooseTrack(tracks, trackDesc, trackId)
+	return chooseTrack(tracks, trackDesc, trackID)
 }
 
-func parseGeoJSON(data []byte, trackId int) (orb.LineString, error) {
+func parseGeoJSON(data []byte, trackID int) (orb.LineString, error) {
 	// TODO: what if the toplevel is not a FeatureCollection?
 	fc, err := geojson.UnmarshalFeatureCollection(data)
 	if err != nil {
@@ -84,10 +84,10 @@ func parseGeoJSON(data []byte, trackId int) (orb.LineString, error) {
 		}
 	}
 
-	return chooseTrack(tracks, trackDesc, trackId)
+	return chooseTrack(tracks, trackDesc, trackID)
 }
 
-func chooseTrack(tracks []orb.LineString, trackDesc []string, trackId int) (orb.LineString, error) {
+func chooseTrack(tracks []orb.LineString, trackDesc []string, trackID int) (orb.LineString, error) {
 	if len(tracks) == 1 {
 		return tracks[0], nil
 	}
@@ -96,13 +96,13 @@ func chooseTrack(tracks []orb.LineString, trackDesc []string, trackId int) (orb.
 		return nil, errors.New("The given file does not contain any tracks")
 	}
 
-	if trackId >= len(tracks) {
-		errMsg := fmt.Sprintf("The given file only contains %d tracks, cannot select track %d", len(tracks), trackId)
+	if trackID >= len(tracks) {
+		errMsg := fmt.Sprintf("The given file only contains %d tracks, cannot select track %d", len(tracks), trackID)
 		return nil, errors.New(errMsg)
 	}
 
-	if trackId >= 0 {
-		return tracks[trackId], nil
+	if trackID >= 0 {
+		return tracks[trackID], nil
 	}
 
 	chooser := "\nThe file you specified contains multiple tracks. Please choose which should be used:\n"
