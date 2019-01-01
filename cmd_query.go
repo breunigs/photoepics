@@ -62,17 +62,17 @@ func runCmdQuery(startImageKey, endImageKey string) {
 	}
 
 	// full list
-	// fmt.Println("DB UID     SEQUENCE KEY             IMAGE KEY")
-	// for _, pic := range r.Path {
-	// 	fmt.Printf("(%s) %s:  %s\n", pic.Uid, pic.Sequence, pic.Key)
-	// }
+	fmt.Println("\n\nDB UID     SEQUENCE KEY             IMAGE KEY")
+	for _, pic := range r.Path {
+		fmt.Printf("(%s) %s:  %s\n", pic.Uid, pic.Sequence, pic.Key)
+	}
 
 	// abbreviated
+	fmt.Println("\n\nSummarized")
 	prevSeq := ""
-
 	seqStart := emptyImageKey
 	seqEnd := emptyImageKey
-
+	first := true
 	for _, pic := range r.Path {
 		if prevSeq == pic.Sequence {
 			seqEnd = pic.Key
@@ -80,15 +80,21 @@ func runCmdQuery(startImageKey, endImageKey string) {
 		}
 
 		if prevSeq != "" {
-			if seqEnd == emptyImageKey {
-				seqStart, seqEnd = seqEnd, seqStart
+			lineEnd := "\n"
+			if seqStart == seqEnd {
+				if first {
+					seqStart = emptyImageKey
+				} else {
+					lineEnd = " // single image\n"
+				}
 			}
-			fmt.Println(`{ "seq": "` + prevSeq + `", "from": "` + seqStart + `", "to": "` + seqEnd + `" },`)
+			first = false
+			fmt.Print(`{ "seq": "` + prevSeq + `", "from": "` + seqStart + `", "to": "` + seqEnd + `" },` + lineEnd)
 		}
 
 		prevSeq = pic.Sequence
 		seqStart = pic.Key
-		seqEnd = emptyImageKey
+		seqEnd = seqStart
 	}
 	fmt.Println(`{ "seq": "` + prevSeq + `", "from": "` + seqStart + `", "to": "` + emptyImageKey + `" },`)
 }
