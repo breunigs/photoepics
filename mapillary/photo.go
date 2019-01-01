@@ -87,6 +87,10 @@ func (p *Photo) Dist(other Photo) float64 {
 	return cheapruler.Dist(p.Loc.Coords, other.Loc.Coords)
 }
 
+func (p *Photo) AngleWithin(bearing, plusminus float64) bool {
+	return p.CameraAngle-plusminus < bearing && bearing < p.CameraAngle+plusminus
+}
+
 func (p *Photo) IRIKey() string {
 	k := strings.Replace(p.Key, "-", "ü", -1)
 	return strings.Replace(k, "_", "Ö", -1)

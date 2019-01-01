@@ -75,8 +75,9 @@ func calcWeights(weightChan chan<- dgraph.DgraphInsertable, seen *sync.Map, ps1,
 			// arbitrary number to avoid negative weights
 			weight := 15.0
 
-			// consider distance from path
-			weight += math.Pow(p1.DistFromPath, 1.5) + math.Pow(p2.DistFromPath, 1.5)
+			// consider distance from path, but ignore differences below 2m
+			avgDist := (p1.DistFromPath + p2.DistFromPath) / 2
+			weight += math.Max(0, math.Pow(avgDist, 1.5)-2)
 
 			// bonus if they are transitionable
 			if p1.Transitionable(p2) {
@@ -89,9 +90,16 @@ func calcWeights(weightChan chan<- dgraph.DgraphInsertable, seen *sync.Map, ps1,
 			}
 
 			// consider distance between the photos themselves, ideal distance at 2m apart.
-			// 0m is +4, 2m +0, 4m +4, 8m +36
 			dist := p1.Dist(p2)
+			// 1m is +4, 3m +0, 5m +4, 9m +36
+			// weight += math.Pow(dist-3, 2)
+
+			// 0m is +4, 2m +0, 4m +4, 8m +36
 			weight += math.Pow(dist-2, 2)
+			// discourage close pics more strongly
+			if dist < 1 {
+				weight += 2
+			}
 
 			// viewing in same direction? (+0 to +35)
 			var angle float64
@@ -102,7 +110,7 @@ func calcWeights(weightChan chan<- dgraph.DgraphInsertable, seen *sync.Map, ps1,
 			}
 			weight += (angle * angle) / 1000.0
 
-			if weight > 100 {
+			if weight > 250 {
 				continue
 			}
 
@@ -126,14 +134,16 @@ func calcWeights(weightChan chan<- dgraph.DgraphInsertable, seen *sync.Map, ps1,
 				bearing2 += 360
 			}
 
-			if p1.CameraAngle-90 < bearing1 && bearing1 < p1.CameraAngle+90 {
-				// log.Printf("%s -> %s @ %f\n", p1.Key, p2.Key, weight)
+			if p1.AngleWithin(bearing1, 45) {
 				weightChan <- edge{from: p1.Uid, to: p2.Uid, weight: weight}
+			} else if p1.AngleWithin(bearing1, 90) {
+				weightChan <- edge{from: p1.Uid, to: p2.Uid, weight: weight + 5}
 			}
 
-			if p2.CameraAngle-90 < bearing2 && bearing2 < p2.CameraAngle+90 {
-				// log.Printf("%s -> %s # %f\n", p2.Key, p1.Key, weight)
+			if p2.AngleWithin(bearing2, 45) {
 				weightChan <- edge{from: p2.Uid, to: p1.Uid, weight: weight}
+			} else if p2.AngleWithin(bearing2, 90) {
+				weightChan <- edge{from: p2.Uid, to: p1.Uid, weight: weight + 5}
 			}
 		}
 	}
