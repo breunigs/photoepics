@@ -9,16 +9,36 @@ import (
 	"time"
 
 	"github.com/breunigs/photoepics/browser"
+	"github.com/paulmach/orb"
 )
 
 type jsonGraphInt64 struct {
-	Type  string `json:"$type"`
-	Value int64  `json:"value"`
+	// Type  string `json:"$type"`
+	Value int64 `json:"value"`
+}
+
+type jsonGraphFloat64 struct {
+	// Type  string `json:"$type"`
+	Value float64 `json:"value"`
+}
+
+type jsonGraphLonLat struct {
+	// Type  string `json:"$type"`
+	Value struct {
+		Lon float64 `json:"lon"`
+		Lat float64 `json:"lat"`
+	} `json:"value"`
 }
 
 type imageByKey struct {
-	CapturedAt jsonGraphInt64 `json:"captured_at"`
-	MergeCC    jsonGraphInt64 `json:"merge_cc"`
+	CapturedAt jsonGraphInt64   `json:"captured_at"`
+	MergeCC    jsonGraphInt64   `json:"merge_cc"`
+	SfmCa      jsonGraphFloat64 `json:"cca"` // corrected camera angle (via structure from motion)
+	SfmL       jsonGraphLonLat  `json:"cl"`  // corrected location (via structure from motion)
+}
+
+func (ibk imageByKey) SfmPoint() orb.Point {
+	return orb.Point{ibk.SfmL.Value.Lon, ibk.SfmL.Value.Lat}
 }
 
 type graphImageByKey struct {
@@ -48,7 +68,7 @@ func getImageByKeys(conf Config, imageKey []string) map[string]imageByKey {
 	url := mapillaryBaseUrl + "model.json"
 	url += "?client_id=" + conf.APIKey
 	url += "&method=get"
-	url += fmt.Sprintf(`&paths=[["imageByKey",["%s"],["captured_at","merge_cc"]]]`, imgKeys)
+	url += fmt.Sprintf(`&paths=[["imageByKey",["%s"],["captured_at","merge_cc","cca","cl"]]]`, imgKeys)
 	body, err := browser.Get(url)
 	if err != nil {
 		log.Fatalf("Failed to read from Mapillary: %+v", err)

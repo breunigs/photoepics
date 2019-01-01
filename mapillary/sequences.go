@@ -132,13 +132,15 @@ func (s sequenceRetriever) makePhotos(seq string, imgKeys []string, ls orb.LineS
 			for j := 0; j < len(imgKeyChunk); j++ {
 				details := detailsChunk[imgKeyChunk[j]]
 				pic := Photo{
-					Key:         imgKeyChunk[j],
-					CameraAngle: casChunk[j],
-					Captured:    time.Unix(details.CapturedAt.Value/1000, 0),
-					MergeCC:     details.MergeCC.Value,
-					Sequence:    seq,
+					Key:            imgKeyChunk[j],
+					OrgCameraAngle: casChunk[j],
+					CameraAngle:    details.SfmCa.Value,
+					Captured:       time.Unix(details.CapturedAt.Value/1000, 0),
+					MergeCC:        details.MergeCC.Value,
+					Sequence:       seq,
 				}
-				pic.SetLocation(lsChunk[j])
+				pic.SetOrgLocation(lsChunk[j])
+				pic.SetLocation(details.SfmPoint())
 				pic.DistFromPath = cheapruler.LineDist(s.lineStr, pic.Point())
 				s.out <- &pic
 			}

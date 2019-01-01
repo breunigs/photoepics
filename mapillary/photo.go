@@ -34,14 +34,16 @@ const PhotoReadQueryBody = `
 `
 
 type Photo struct {
-	Uid          string    `json:"uid,omitempty"`
-	Key          string    `json:"key,omitempty"`
-	Sequence     string    `json:"sequence,omitempty"`
-	Loc          loc       `json:"loc,omitempty"`
-	CameraAngle  float64   `json:"cameraAngle,omitempty"`
-	MergeCC      int64     `json:"mergeCC,omitempty"`
-	Captured     time.Time `json:"captured,omitempty"`
-	DistFromPath float64   `json:"distFromPath,omitempty"`
+	Uid            string    `json:"uid,omitempty"`
+	Key            string    `json:"key,omitempty"`
+	Sequence       string    `json:"sequence,omitempty"`
+	Loc            loc       `json:"loc,omitempty"`
+	OrgLoc         loc       `json:"orgLoc,omitempty"`
+	CameraAngle    float64   `json:"cameraAngle,omitempty"`
+	OrgCameraAngle float64   `json:"orgCameraAngle,omitempty"`
+	MergeCC        int64     `json:"mergeCC,omitempty"`
+	Captured       time.Time `json:"captured,omitempty"`
+	DistFromPath   float64   `json:"distFromPath,omitempty"`
 }
 
 func (p *Photo) Point() orb.Point {
@@ -50,6 +52,13 @@ func (p *Photo) Point() orb.Point {
 
 func (p *Photo) SetLocation(pt orb.Point) {
 	p.Loc = loc{
+		Type:   "Point",
+		Coords: []float64{pt[0], pt[1]},
+	}
+}
+
+func (p *Photo) SetOrgLocation(pt orb.Point) {
+	p.OrgLoc = loc{
 		Type:   "Point",
 		Coords: []float64{pt[0], pt[1]},
 	}
@@ -87,13 +96,18 @@ func (p *Photo) DgraphInsert() string {
 	k := p.IRIKey()
 	return fmt.Sprintf(`
     _:`+k+` <loc> "{'type':'Point','coordinates':[%f,%f]}"^^<geo:geojson> .
+    _:`+k+` <orgLoc> "{'type':'Point','coordinates':[%f,%f]}"^^<geo:geojson> .
     _:`+k+` <key> "%s" .
     _:`+k+` <sequence> "%s" .
     _:`+k+` <cameraAngle> "%f" .
+    _:`+k+` <orgCameraAngle> "%f" .
     _:`+k+` <mergeCC> "%d" .
     _:`+k+` <captured> "%s" .
     _:`+k+` <distFromPath> "%f" .
-  `, p.Loc.Coords[0], p.Loc.Coords[1], p.Key, p.Sequence, p.CameraAngle, p.MergeCC, p.RFC3339(), p.DistFromPath)
+  `,
+		p.Loc.Coords[0], p.Loc.Coords[1],
+		p.OrgLoc.Coords[0], p.OrgLoc.Coords[1],
+		p.Key, p.Sequence, p.CameraAngle, p.OrgCameraAngle, p.MergeCC, p.RFC3339(), p.DistFromPath)
 }
 
 func PhotoCount(db dgraph.Wrapper) int64 {
@@ -148,8 +162,10 @@ func PhotoDgraphSchema() string {
 	return `
     key: string @index(exact) .
     loc: geo @index(geo) .
+    orgLoc: geo .
     sequence: string .
     cameraAngle: float .
+    orgCameraAngle: float .
     mergeCC: int .
     captured: dateTime .
     distFromPath: float .
