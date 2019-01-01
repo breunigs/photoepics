@@ -39,7 +39,7 @@ func CalcWeightsAlong(db dgraph.Wrapper, lineStr orb.LineString, stepSize float6
 		equidist := cheapruler.EveryN(lineStr, stepSize)
 
 		log.Println("Calculating weights for close images…")
-		bar := pb.StartNew(len(equidist))
+		bar := pb.StartNew(len(equidist) - 1)
 		picPairChan := findNearbyImages(db, equidist, stepSize*2)
 
 		for picPair := range picPairChan {
@@ -166,14 +166,10 @@ func findNearbyImages(db dgraph.Wrapper, pts []orb.Point, radius float64) <-chan
 	go func() {
 		startFrom := 0
 		status := make([]bool, len(pts))
-		maxThreads := len(pts) - 2
-		if maxThreads <= 0 {
-			maxThreads = 1
-		}
-		for c := 0; c < maxThreads; c++ {
+		for c := 0; c < len(pts); c++ {
 			status[<-done] = true
 			// everytime a new query is done, try to emit the next pair
-			for i := startFrom; i < len(pts); i++ {
+			for i := startFrom; i < len(pts)-1; i++ {
 				if !status[i] || !status[i+1] {
 					break
 				}
