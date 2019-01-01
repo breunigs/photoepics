@@ -1,6 +1,6 @@
 BINARY_NAME=photoepics
 
-all: test build
+all: deps test build
 build:
 	go build -o $(BINARY_NAME) -v
 
